@@ -1,0 +1,10 @@
+version: '2.1'
+services:
+  postgres:
+    image: 'postgres:10.1'
+    environment:
+      POSTGRES_DB: 'experimentDB'
+      POSTGRES_USER: 'marek'
+      POSTGRES_PASSWORD: 'password'
+    ports:
+      - '5432'

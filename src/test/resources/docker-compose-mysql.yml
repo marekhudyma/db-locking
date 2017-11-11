@@ -1,0 +1,11 @@
+version: '2.1'
+services:
+  mysql:
+    image: 'mysql:5.7'
+    environment:
+       MYSQL_ROOT_PASSWORD: 'password'
+       MYSQL_DATABASE: 'experimentDB'
+       MYSQL_USER: 'marek'
+       MYSQL_PASSWORD: 'password'
+    ports:
+      - '5432'
