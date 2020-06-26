@@ -155,6 +155,43 @@ class LockingOptimisticRepositoryIntegrationTest extends com.marekhudyma.dbLocki
         RuntimeCountDownLatch t2ReadWrite = new RuntimeCountDownLatch(1);
 
         ThreadWithException t1 = startThread(() -> runInTransaction(() -> {
+            EntityWithVersion entity = entityWithVersionRepository.findById(id.get()).get();
+            t1Read.countDown();
+            t2ReadWrite.await();
+            entity.setDescription("description-changed-by-t1");
+            entityWithVersionRepository.save(entity);
+        }));
+
+        ThreadWithException t2 = startThread(() -> runInTransaction(() -> {
+            t1Read.await();
+            EntityWithVersion entity = entityWithVersionRepository.findById(id.get()).get();
+            entity.setDescription("description-changed-by-t2");
+            System.out.println("------------------------------------------------------------------------------1");
+            entityWithVersionRepository.save(entity);
+            System.out.println("------------------------------------------------------------------------------2");
+        }));
+
+        t2.join();
+        t2ReadWrite.countDown();
+        t1.join();
+
+        EntityWithVersion entity = entityWithVersionRepository.findById(id.get()).get();
+
+        assertThat(entity.getDescription()).isEqualTo("description-changed-by-t2");
+        assertThat(t1.getException().get().getClass()).isEqualTo(ObjectOptimisticLockingFailureException.class);
+        assertThat(t2.getException()).isEqualTo(Optional.empty());
+    }
+
+    @Test
+    @SuppressWarnings("Duplicates")
+    void shouldDoOptimisticLockingForEntityWithVersionFindByIdWithLocking() throws Exception {
+        AtomicLong id = new AtomicLong();
+        executeInBlockingThread(() -> runInTransaction(() -> id.set(createEntityWithVersion().getId())));
+
+        RuntimeCountDownLatch t1Read = new RuntimeCountDownLatch(1);
+        RuntimeCountDownLatch t2ReadWrite = new RuntimeCountDownLatch(1);
+
+        ThreadWithException t1 = startThread(() -> runInTransaction(() -> {
             EntityWithVersion entity = entityWithVersionOptimisticRepository.findById(id.get()).get();
             t1Read.countDown();
             t2ReadWrite.await();
