@@ -141,6 +141,10 @@ class LockingOptimisticRepositoryIntegrationTest extends com.marekhudyma.dbLocki
 
     // select entitywith0_.id ... from entity_with_version entitywith0_ where entitywith0_.id=?
     // update entity_with_version set created=?, description=?, version=? where id=? and version=?
+    // this tests also show that the same result we have when we use
+    // @Lock(LockModeType.OPTIMISTIC)
+    // Optional<EntityWithVersion> findById(Long id);
+    // and without @Lock annotation.
     @Test
     @SuppressWarnings("Duplicates")
     void shouldDoOptimisticLockingForEntityWithVersionDefaultfindById() throws Exception {
@@ -151,19 +155,19 @@ class LockingOptimisticRepositoryIntegrationTest extends com.marekhudyma.dbLocki
         RuntimeCountDownLatch t2ReadWrite = new RuntimeCountDownLatch(1);
 
         ThreadWithException t1 = startThread(() -> runInTransaction(() -> {
-            EntityWithVersion entity = entityWithVersionRepository.findById(id.get()).get();
+            EntityWithVersion entity = entityWithVersionOptimisticRepository.findById(id.get()).get();
             t1Read.countDown();
             t2ReadWrite.await();
             entity.setDescription("description-changed-by-t1");
-            entityWithVersionRepository.save(entity);
+            entityWithVersionOptimisticRepository.save(entity);
         }));
 
         ThreadWithException t2 = startThread(() -> runInTransaction(() -> {
             t1Read.await();
-            EntityWithVersion entity = entityWithVersionRepository.findById(id.get()).get();
+            EntityWithVersion entity = entityWithVersionOptimisticRepository.findById(id.get()).get();
             entity.setDescription("description-changed-by-t2");
             System.out.println("------------------------------------------------------------------------------1");
-            entityWithVersionRepository.save(entity);
+            entityWithVersionOptimisticRepository.save(entity);
             System.out.println("------------------------------------------------------------------------------2");
         }));
 
@@ -171,7 +175,7 @@ class LockingOptimisticRepositoryIntegrationTest extends com.marekhudyma.dbLocki
         t2ReadWrite.countDown();
         t1.join();
 
-        EntityWithVersion entity = entityWithVersionRepository.findById(id.get()).get();
+        EntityWithVersion entity = entityWithVersionOptimisticRepository.findById(id.get()).get();
 
         assertThat(entity.getDescription()).isEqualTo("description-changed-by-t2");
         assertThat(t1.getException().get().getClass()).isEqualTo(ObjectOptimisticLockingFailureException.class);
